@@ -1,0 +1,434 @@
+Worked for 44s
+
+Haan, is lab ko DB Fiddle / MySQL par practice kar sakte ho. Screenshot mein MySQL 8 jaisa environment hai, aur ye queries + procedure usi ke according likh raha hoon. MySQL mein stored procedure ke andar multiple statements hone ki wajah se delimiter handling important hoti hai. 
+
+Lekin actual college lab ke liye MySQL Workbench/local MySQL better hai, kyunki wahi environment tumhe exam/lab mein milne ke zyada close hoga. DB Fiddle practice ke liye convenient hai.
+
+1. Database Design
+
+Hume 3 tables chahiye:
+
+BOOK
+
+book_id → Primary Key
+
+title
+
+author
+
+price
+
+
+MEMBER
+
+member_id → Primary Key
+
+member_name
+
+phone
+
+
+ISSUE
+
+issue_id → Primary Key
+
+book_id → Foreign Key
+
+member_id → Foreign Key
+
+issue_date
+
+return_date
+
+
+Relationship:
+
+BOOK ← ISSUE → MEMBER
+
+Matlab ek book ko multiple times issue kiya ja sakta hai aur ek member multiple books issue kar sakta hai.
+
+
+---
+
+Complete SQL
+
+Isko Schema SQL mein daal do:
+
+DROP TABLE IF EXISTS ISSUE;
+DROP TABLE IF EXISTS BOOK;
+DROP TABLE IF EXISTS MEMBER;
+
+-- 1. BOOK TABLE
+CREATE TABLE BOOK (
+    book_id INT PRIMARY KEY,
+    title VARCHAR(100) NOT NULL,
+    author VARCHAR(100),
+    price DECIMAL(10,2)
+);
+
+-- 2. MEMBER TABLE
+CREATE TABLE MEMBER (
+    member_id INT PRIMARY KEY,
+    member_name VARCHAR(100) NOT NULL,
+    phone VARCHAR(15)
+);
+
+-- 3. ISSUE TABLE
+CREATE TABLE ISSUE (
+    issue_id INT PRIMARY KEY AUTO_INCREMENT,
+    book_id INT,
+    member_id INT,
+    issue_date DATE NOT NULL,
+    return_date DATE,
+
+    FOREIGN KEY (book_id) REFERENCES BOOK(book_id),
+    FOREIGN KEY (member_id) REFERENCES MEMBER(member_id)
+);
+
+-- SAMPLE BOOKS
+INSERT INTO BOOK VALUES
+(101, 'DBMS', 'Korth', 500),
+(102, 'Operating System', 'Galvin', 600),
+(103, 'Computer Networks', 'Tanenbaum', 550),
+(104, 'Data Structures', 'Lipschutz', 450),
+(105, 'Machine Learning', 'Tom Mitchell', 700);
+
+-- SAMPLE MEMBERS
+INSERT INTO MEMBER VALUES
+(1, 'Rahul', '9876543210'),
+(2, 'Aman', '9876543211'),
+(3, 'Shreyansh', '9876543212');
+
+-- SAMPLE ISSUE RECORDS
+INSERT INTO ISSUE
+(book_id, member_id, issue_date, return_date)
+VALUES
+(101, 1, '2026-09-01', '2026-09-10'),
+(102, 1, '2026-08-01', '2026-08-20'),
+(103, 2, '2026-09-02', '2026-09-25'),
+(101, 2, '2026-08-10', '2026-08-15');
+
+
+---
+
+2. Display books that have never been issued
+
+Logic
+
+Hume BOOK ke saare records lene hain aur dekhna hai ki ISSUE mein unka record hai ya nahi.
+
+Best beginner query:
+
+SELECT b.*
+FROM BOOK b
+LEFT JOIN ISSUE i
+ON b.book_id = i.book_id
+WHERE i.book_id IS NULL;
+
+Samjho
+
+LEFT JOIN → BOOK ki saari rows rakhega.
+
+Agar kisi book ka ISSUE record nahi mila, to i.book_id = NULL hoga.
+
+Isliye:
+
+WHERE i.book_id IS NULL
+
+sirf never issued books dega.
+
+Hamare sample data mein:
+
+104 Data Structures
+105 Machine Learning
+
+milenge.
+
+
+---
+
+3. Member who issued maximum number of books
+
+Pehle count karenge ki har member ne kitni books issue ki.
+
+SELECT m.member_id,
+       m.member_name,
+       COUNT(i.issue_id) AS total_books
+FROM MEMBER m
+JOIN ISSUE i
+ON m.member_id = i.member_id
+GROUP BY m.member_id, m.member_name
+ORDER BY total_books DESC
+LIMIT 1;
+
+Logic
+
+Sabse important part:
+
+COUNT(i.issue_id)
+
+→ member ne kitni baar book issue ki.
+
+GROUP BY m.member_id, m.member_name
+
+→ har member ka separate group.
+
+ORDER BY total_books DESC
+
+→ maximum count sabse upar.
+
+LIMIT 1
+
+→ sirf maximum wala member.
+
+Sample mein:
+
+Rahul → 2
+Aman → 2
+Shreyansh → 0
+
+Yahan Rahul aur Aman tie hain. Upar wali query sirf ek return karegi.
+
+Agar lab mein maximum issue karne wale saare members, including ties, dikhane hain, to:
+
+SELECT m.member_id,
+       m.member_name,
+       COUNT(i.issue_id) AS total_books
+FROM MEMBER m
+JOIN ISSUE i
+ON m.member_id = i.member_id
+GROUP BY m.member_id, m.member_name
+HAVING COUNT(i.issue_id) = (
+    SELECT MAX(book_count)
+    FROM (
+        SELECT COUNT(*) AS book_count
+        FROM ISSUE
+        GROUP BY member_id
+    ) x
+);
+
+Exam mein basic version yaad rakhna:
+
+GROUP BY → COUNT → ORDER BY DESC → LIMIT 1
+
+
+---
+
+4. Calculate fine for books returned after 15 days
+
+Yahan ek assumption hai: 15 days ke baad ₹2 per day fine.
+
+Tumhare sir ne koi different fine rate diya ho to 2 replace kar dena.
+
+SELECT issue_id,
+       book_id,
+       member_id,
+       issue_date,
+       return_date,
+       DATEDIFF(return_date, issue_date) AS total_days,
+
+       CASE
+           WHEN DATEDIFF(return_date, issue_date) > 15
+           THEN (DATEDIFF(return_date, issue_date) - 15) * 2
+           ELSE 0
+       END AS fine
+
+FROM ISSUE
+WHERE return_date IS NOT NULL;
+
+Main concept
+
+DATEDIFF(return_date, issue_date)
+
+→ total kitne days book member ke paas thi.
+
+Suppose:
+
+Issue = 1 Aug
+Return = 20 Aug
+
+Difference:
+
+19 days
+
+Allowed:
+
+15 days
+
+Late:
+
+19 - 15 = 4 days
+
+Fine:
+
+4 × ₹2 = ₹8
+
+Sirf late returned books chahiye:
+
+SELECT issue_id,
+       book_id,
+       member_id,
+       issue_date,
+       return_date,
+       (DATEDIFF(return_date, issue_date) - 15) * 2 AS fine
+FROM ISSUE
+WHERE return_date IS NOT NULL
+AND DATEDIFF(return_date, issue_date) > 15;
+
+Ye exam mein aur clean hai.
+
+
+---
+
+5. Create a procedure to issue a book
+
+Yahi sabse important part hai.
+
+Procedure ka kaam:
+
+member + book lo → check karo book already issue hai ya nahi → agar available hai to issue record insert karo.
+
+CREATE PROCEDURE issue_book(
+    IN p_book_id INT,
+    IN p_member_id INT
+)
+BEGIN
+
+    IF EXISTS (
+        SELECT 1
+        FROM ISSUE
+        WHERE book_id = p_book_id
+        AND return_date IS NULL
+    ) THEN
+
+        SELECT 'Book is already issued' AS message;
+
+    ELSE
+
+        INSERT INTO ISSUE
+        (book_id, member_id, issue_date, return_date)
+        VALUES
+        (p_book_id, p_member_id, CURDATE(), NULL);
+
+        SELECT 'Book issued successfully' AS message;
+
+    END IF;
+
+END;
+
+MySQL stored procedures can use BEGIN ... END blocks containing multiple statements. 
+
+Procedure ko call kaise karenge?
+
+CALL issue_book(104, 3);
+
+Matlab:
+
+Book ID = 104
+Member ID = 3
+
+Agar book available hai:
+
+Book issued successfully
+
+phir check:
+
+SELECT * FROM ISSUE;
+
+Tumhe new row milegi.
+
+
+---
+
+⚠️ DB Fiddle mein procedure ka issue
+
+Yahan ek important cheez hai.
+
+Normal MySQL client mein procedure likhte waqt DELIMITER use hota hai, kyunki procedure ke andar ; hote hain. 
+
+Typical MySQL syntax:
+
+DELIMITER $$
+
+CREATE PROCEDURE issue_book(
+    IN p_book_id INT,
+    IN p_member_id INT
+)
+BEGIN
+
+    IF EXISTS (
+        SELECT 1
+        FROM ISSUE
+        WHERE book_id = p_book_id
+        AND return_date IS NULL
+    ) THEN
+
+        SELECT 'Book is already issued' AS message;
+
+    ELSE
+
+        INSERT INTO ISSUE
+        (book_id, member_id, issue_date, return_date)
+        VALUES
+        (p_book_id, p_member_id, CURDATE(), NULL);
+
+        SELECT 'Book issued successfully' AS message;
+
+    END IF;
+
+END $$
+
+DELIMITER ;
+
+But online SQL editors ka delimiter handling alag ho sakta hai. MySQL documentation bhi delimiter ko client-side facility batati hai, SQL statement nahi. 
+
+Isliye tumhare screenshot wale DB Fiddle par:
+
+Pehle table + INSERT + SELECT queries practice karo.
+
+Procedure ke liye MySQL Workbench use karna better rahega, because tumhe actual stored-procedure syntax properly samajh aayega.
+
+SQL Fiddle bhi currently MySQL ke liye online compiler/practice environment provide karta hai. 
+
+
+---
+
+Lab mein likhne layak final answer
+
+Agar sir ne theory + SQL dono mangi hain, to structure aise rakho:
+
+1. Create BOOK, MEMBER and ISSUE tables.
+2. Insert sample records.
+3. Find never issued books using LEFT JOIN.
+4. Find member with maximum issued books using GROUP BY, COUNT and ORDER BY.
+5. Calculate fine using DATEDIFF and CASE.
+6. Create procedure issue_book() using IF EXISTS.
+
+Sabse important concepts yaad karo
+
+Never issued:
+LEFT JOIN + IS NULL
+
+Maximum:
+COUNT + GROUP BY + ORDER BY DESC
+
+Fine:
+DATEDIFF()
+
+Condition:
+CASE WHEN
+
+Procedure:
+CREATE PROCEDURE
+IN parameter
+BEGIN ... END
+IF EXISTS
+CALL
+
+Tumhare liye practical sequence
+
+Step 1: DB Fiddle mein upar wala schema + insert code run karo.
+Step 2: Har question ki query alag-alag run karke output dekho.
+Step 3: Procedure ko MySQL Workbench mein practice karo.
+
+Ye ratta maarne se better hai, kyunki lab mein question ke column names ya table structure change kar diye gaye to tum phir bhi solve kar paoge.
