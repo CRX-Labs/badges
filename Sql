@@ -1,0 +1,147 @@
+Haan. Image mein Star Schema dikh raha hai jisme centre mein fact_sales hai aur 4 dimension tables hain:
+
+dim_customer
+                      |
+                      |
+dim_product ---- fact_sales ---- dim_time
+                      |
+                      |
+                 dim_location
+
+Isko SQL mein banane ke liye pehle dimension tables, phir fact table create karna hoga.
+
+Complete SQL
+
+-- =========================================
+-- 1. Customer Dimension
+-- =========================================
+
+CREATE TABLE dim_customer (
+    customer_id INT PRIMARY KEY,
+    customer_name VARCHAR(100),
+    gender VARCHAR(10),
+    city VARCHAR(50),
+    state VARCHAR(50)
+);
+
+
+-- =========================================
+-- 2. Product Dimension
+-- =========================================
+
+CREATE TABLE dim_product (
+    product_id INT PRIMARY KEY,
+    product_name VARCHAR(100),
+    category VARCHAR(50),
+    subcategory VARCHAR(50),
+    price DECIMAL(10,2)
+);
+
+
+-- =========================================
+-- 3. Time Dimension
+-- =========================================
+
+CREATE TABLE dim_time (
+    time_id INT PRIMARY KEY,
+    full_date DATE,
+    day INT,
+    month INT,
+    quarter INT,
+    year INT
+);
+
+
+-- =========================================
+-- 4. Location Dimension
+-- =========================================
+
+CREATE TABLE dim_location (
+    location_id INT PRIMARY KEY,
+    city VARCHAR(50),
+    state VARCHAR(50),
+    country VARCHAR(50),
+    region VARCHAR(50)
+);
+
+
+-- =========================================
+-- 5. Sales Fact Table
+-- =========================================
+
+CREATE TABLE fact_sales (
+    sales_id INT PRIMARY KEY,
+
+    customer_id INT,
+    product_id INT,
+    time_id INT,
+    location_id INT,
+
+    quantity INT,
+    sales_amount DECIMAL(10,2),
+    discount DECIMAL(10,2),
+
+    FOREIGN KEY (customer_id)
+        REFERENCES dim_customer(customer_id),
+
+    FOREIGN KEY (product_id)
+        REFERENCES dim_product(product_id),
+
+    FOREIGN KEY (time_id)
+        REFERENCES dim_time(time_id),
+
+    FOREIGN KEY (location_id)
+        REFERENCES dim_location(location_id)
+);
+
+Isme actual relation kya hai?
+
+fact_sales mein dimensions ki foreign keys hongi:
+
+Fact Sales	Dimension
+
+customer_id	dim_customer
+product_id	dim_product
+time_id	dim_time
+location_id	dim_location
+
+
+Aur measures:
+
+quantity
+sales_amount
+discount
+
+Example data
+
+INSERT INTO dim_customer
+VALUES
+(1, 'Rahul Sharma', 'Male', 'Prayagraj', 'Uttar Pradesh'),
+(2, 'Priya Singh', 'Female', 'Lucknow', 'Uttar Pradesh');
+
+
+INSERT INTO dim_product
+VALUES
+(101, 'Laptop', 'Electronics', 'Computers', 55000.00),
+(102, 'Mouse', 'Electronics', 'Accessories', 800.00);
+
+
+INSERT INTO dim_time
+VALUES
+(1, '2026-09-26', 26, 9, 3, 2026);
+
+
+INSERT INTO dim_location
+VALUES
+(1, 'Prayagraj', 'Uttar Pradesh', 'India', 'North India');
+
+
+INSERT INTO fact_sales
+VALUES
+(1001, 1, 101, 1, 1, 2, 110000.00, 5000.00);
+
+Important
+
+Tumhare second image mein jo exact dim_customer aur dim_product columns diye hain, unko maine preserve kiya hai. Lekin first image mein dim_time, dim_location aur fact_sales ke columns visible nahi hain. Isliye unke columns maine standard Star Schema ke according banaye hain.
+
+Agar teacher ne isi practical ka next page/remaining code diya hai, uski photo bhej do. Main exactly teacher ke schema ke according पूरा SQL + INSERT + SELECT queries bana dunga, extra columns apni taraf se nahi ghusaunga.
